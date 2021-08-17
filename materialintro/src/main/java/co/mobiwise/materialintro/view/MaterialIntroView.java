@@ -23,6 +23,9 @@ import android.widget.ImageView;
 import android.widget.RelativeLayout;
 import android.widget.TextView;
 
+import androidx.appcompat.view.ContextThemeWrapper;
+import androidx.appcompat.widget.AppCompatButton;
+
 import co.mobiwise.materialintro.MaterialIntroConfiguration;
 import co.mobiwise.materialintro.R;
 import co.mobiwise.materialintro.animation.AnimationFactory;
@@ -219,6 +222,8 @@ public class MaterialIntroView extends RelativeLayout {
      * Use custom shape
      */
     private boolean usesCustomShape = false;
+    private MaterialIntroListener skipButtonListener;
+    private AppCompatButton skipButton;
 
     public MaterialIntroView(Context context) {
         super(context);
@@ -301,6 +306,31 @@ public class MaterialIntroView extends RelativeLayout {
                 }
             }
         });
+
+        skipButton = new AppCompatButton(new ContextThemeWrapper(getContext(), R.style.Widget_AppCompat_Button_Colored), null, R.style.Widget_AppCompat_Button_Borderless_Colored);
+
+        skipButton.setText("Skip tutorial");
+        RelativeLayout.LayoutParams params = new RelativeLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        params.addRule(RelativeLayout.ALIGN_PARENT_BOTTOM);
+        int margin = (int) (16 * getResources().getDisplayMetrics().density);
+        params.setMargins(margin, margin, margin, margin * 3);
+        skipButton.setLayoutParams(params);
+        skipButton.getBackground().setAlpha(0x80); //.setColorFilter(new LightingColorFilter(0xffff0000, 0x000000));
+//        TypedArray themeArray = getContext().getTheme().obtainStyledAttributes(new int[]{android.R.attr.textColor});
+//        ColorStateList color = themeArray.getColorStateList(0);
+//        final int highlightColor = color.getDefaultColor();
+        skipButton.setTextColor(Color.WHITE); //highlightColor);
+
+        skipButton.setOnClickListener(new OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                if (skipButtonListener != null)
+                    skipButtonListener.onUserClicked(materialIntroViewId);
+                //dismiss();
+                removeMaterialView();
+            }
+        });
+        addView(skipButton);
 
     }
 
@@ -400,6 +430,15 @@ public class MaterialIntroView extends RelativeLayout {
      */
     private void show(Activity activity) {
 
+        // avoiding display another tutorial screen over existing
+        ViewGroup vg = (ViewGroup) activity.getWindow().getDecorView();
+        for(int i = 0; i < vg.getChildCount(); i++) {
+            if (vg.getChildAt(i) instanceof MaterialIntroView) {
+                removeMaterialView();
+                return;
+            }
+        }
+
         if (preferencesManager.isDisplayed(materialIntroViewId))
             return;
 
@@ -431,20 +470,26 @@ public class MaterialIntroView extends RelativeLayout {
      * Dismiss Material Intro View
      */
     public void dismiss() {
-        if(!isIdempotent) {
+        if(isIdempotent) {
             preferencesManager.setDisplayed(materialIntroViewId);
         }
 
+        if (isFadeAnimationEnabled)
         AnimationFactory.animateFadeOut(this, fadeAnimationDuration, new AnimationListener.OnAnimationEndListener() {
             @Override
             public void onAnimationEnd() {
-                setVisibility(GONE);
-                removeMaterialView();
-
-                if (materialIntroListener != null)
-                    materialIntroListener.onUserClicked(materialIntroViewId);
+                dismiss2();
             }
         });
+        else dismiss2();
+    }
+
+    private void dismiss2() {
+        setVisibility(GONE);
+        removeMaterialView();
+
+        if (materialIntroListener != null)
+            materialIntroListener.onUserClicked(materialIntroViewId);
     }
 
     private void removeMaterialView(){
@@ -752,6 +797,9 @@ public class MaterialIntroView extends RelativeLayout {
         }
 
         public MaterialIntroView build() {
+            if (materialIntroView.skipButtonListener == null)
+                materialIntroView.skipButton.setVisibility(GONE);
+
             if(materialIntroView.usesCustomShape) {
                 return materialIntroView;
             }
@@ -782,6 +830,20 @@ public class MaterialIntroView extends RelativeLayout {
             return materialIntroView;
         }
 
+        public Builder setSkipButton(MaterialIntroListener skipButtonListener) {
+            materialIntroView.setSkipButtonListener(skipButtonListener);
+            return this;
+        }
+
+        public Builder setIcon(int icon) {
+            materialIntroView.enableImageViewIcon(true);
+            materialIntroView.imageViewIcon.setImageResource(icon);
+            return this;
+        }
+    }
+
+    private void setSkipButtonListener(MaterialIntroListener skipButtonListener) {
+        this.skipButtonListener = skipButtonListener;
     }
 
 }
